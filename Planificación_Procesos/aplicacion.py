@@ -16,6 +16,7 @@ class Aplicacion:
     def crear_interfaz(self):
         self.ventana.title("Planificación de Procesos por Prioridad")
         self.ventana.geometry("700x600")
+        #Fondo amarillo
         self.ventana.configure(bg="#eaeaea")
         self.crear_entradas_y_etiquetas()
         self.crear_botones()
@@ -59,13 +60,15 @@ class Aplicacion:
                   fg="white", font=('Helvetica', 12)).pack(pady=5)
 
     def crear_tabla(self):
-        self.tabla = ttk.Treeview(self.ventana, columns=('Proceso', 'Ráfaga CPU', 'Prioridad', 'Tiempo Espera', 'Tiempo Retorno'),
+        self.tabla = ttk.Treeview(self.ventana,
+                                  columns=('Proceso', 'Ráfaga CPU', 'Prioridad', 'Tiempo Espera', 'Inicio', 'Fin'),
                                   show='headings')
         self.tabla.heading('Proceso', text='Proceso')
         self.tabla.heading('Ráfaga CPU', text='Ráfaga CPU')
         self.tabla.heading('Prioridad', text='Prioridad')
         self.tabla.heading('Tiempo Espera', text='Tiempo Espera')
-        self.tabla.heading('Tiempo Retorno', text='Tiempo Retorno')
+        self.tabla.heading('Inicio', text='Inicio')
+        self.tabla.heading('Fin', text='Fin')
 
         for col in self.tabla['columns']:
             self.tabla.column(col, anchor='center')
@@ -77,7 +80,8 @@ class Aplicacion:
 
     def crear_canvas_secuencia(self):
         self.canvas = tk.Canvas(self.ventana, height=150, bg="white")  # Altura aumentada para mayor claridad
-        self.canvas.pack(pady=20, fill=tk.X)
+        self.canvas.pack(pady=10, fill=tk.BOTH, expand=True)
+
 
     def agregar_proceso(self):
         nombre = self.entrada_nombre.get().strip()
@@ -111,6 +115,8 @@ class Aplicacion:
         if not nombre:
             messagebox.showerror("Error", "Ingrese el nombre del Proceso.")
             self.entrada_nombre.focus()
+            #agregar metodo para limpiar campos
+
             return False
         if not self.entrada_tiempo_ejecucion.get().strip():
             messagebox.showerror("Error", "Ingrese la Ráfaga de CPU.")
@@ -137,9 +143,11 @@ class Aplicacion:
         for item in self.tabla.get_children():
             self.tabla.delete(item)
         for proceso in self.gestor_procesos.planificar_por_prioridad():
-            tiempo_espera_ut = f"{proceso[4]} ut"
-            tiempo_retorno_ut = f"{proceso[5]} ut"
-            self.tabla.insert("", tk.END, values=(proceso[0], proceso[1], proceso[3], tiempo_espera_ut, tiempo_retorno_ut))
+            tiempo_espera_ut = f"{proceso[4]}ut"  # Tiempo de espera con el formato de operación
+            inicio_ut = f"{proceso[6]} ut"  # Tiempo de inicio
+            fin_ut = f"{proceso[7]} ut"  # Tiempo de finalización
+            self.tabla.insert("", tk.END,
+                              values=(proceso[0], proceso[1], proceso[3], tiempo_espera_ut, inicio_ut, fin_ut))
 
     def ejecutar_planificacion(self):
         self.barra_progreso.start(10)
@@ -173,17 +181,35 @@ class Aplicacion:
             self.canvas.create_text((inicio + fin) // 2, y + height / 2, text=proceso[0], font=('Helvetica', 10))
 
             # Dibujar los tiempos
-            self.canvas.create_text(inicio, y + height + 10, text=str(proceso[2]), font=('Helvetica', 10))  # Tiempo de inicio
-            self.canvas.create_text(fin, y + height + 10, text=str(proceso[5]), font=('Helvetica', 10))  # Tiempo de retorno
+            self.canvas.create_text(inicio, y + height + 10, text=str(proceso[6]),
+                                    font=('Helvetica', 10))  # Tiempo de inicio
+            self.canvas.create_text(fin, y + height + 10, text=str(proceso[7]),
+                                    font=('Helvetica', 10))  # Tiempo de finalización
 
-            x_actual = fin + 20  # Mover el siguiente rectángulo a la derecha con más espacio
+            # Actualizar la secuencia de ejecución mostrando el nombre del proceso, tiempo de inicio y tiempo de retorno
+            secuencia_ejecucion += f"{proceso[0]} ({proceso[6]}-{proceso[7]}) -> "
+            x_actual = fin + 10  # Ajustar la posición para el siguiente proceso
 
-            secuencia_ejecucion += f"{proceso[0]} ({proceso[5]}) "
+        # Calcular promedios y obtener sumas parciales
+        tme, tmr, total_espera, total_retorno = self.gestor_procesos.calcular_promedios()
 
-        tme, tmr = self.gestor_procesos.calcular_promedios()
-        tme_str = f"TME = {tme:.2f} ut"
-        tmr_str = f"TMR = {tmr:.2f} ut"
-        self.resultado_ventana = messagebox.showinfo("Resultados", f"{secuencia_ejecucion}\n\n{tme_str}\n{tmr_str}")
+        # Obtener la cantidad de procesos
+        n = len(self.gestor_procesos.procesos)
+
+        # Crear la operación lógica para TME y TMR
+        tme_formula = "TME=(" + "+".join(
+            str(p.tiempo_espera) for p in self.gestor_procesos.procesos) + f")/{n}={tme:.2f} ut"
+
+        # Usar los tiempos finales para calcular TMR
+        # En este caso utilizaremos el valor de fin de cada proceso que esta en la tabla
+        tmr_formula = "TMR=(" + "+".join(
+            str(p.tiempo_retorno) for p in self.gestor_procesos.procesos) + f")/{n}={tmr:.2f} ut"
+        # Mostrar los resultados con las fórmulas en una ventana emergente
+        self.resultado_ventana = messagebox.showinfo("Resultados",
+                                                     f"{secuencia_ejecucion}\n\n{tme_formula}\n{tmr_formula}")
+
+
+
 
     def limpiar_tabla(self):
         for item in self.tabla.get_children():
@@ -195,6 +221,9 @@ class Aplicacion:
         self.gestor_procesos.limpiar_procesos()
         self.canvas.delete("all")  # Limpiar la secuencia en el Canvas
         self.entrada_nombre.focus_set()
+
+
+
 
 
 # Iniciar la aplicación

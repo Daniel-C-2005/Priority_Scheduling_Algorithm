@@ -3,7 +3,6 @@ import tkinter as tk
 import sys
 import os
 
-# Append the directory containing aplicacion.py to sys.path
 sys.path.append(os.path.abspath("/Planificación_Procesos"))
 
 # Import the Aplicacion class
