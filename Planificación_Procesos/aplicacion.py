@@ -14,10 +14,10 @@ class Aplicacion:
         self.ventana_emergente = None  # Variable para almacenar la ventana emergente abierta
 
     def crear_interfaz(self):
-        self.ventana.title("Planificación de Procesos por Prioridad")
+        self.ventana.title("Priority Scheduling Algorithm")
         self.ventana.geometry("700x600")
-        #Fondo amarillo
-        self.ventana.configure(bg="#eaeaea")
+        #Fondo celeste
+        self.ventana.configure(bg="dodger blue")
         self.crear_entradas_y_etiquetas()
         self.crear_botones()
         self.crear_tabla()
@@ -39,10 +39,10 @@ class Aplicacion:
         self.entrada_prioridad.bind("<Return>", lambda event: self.agregar_proceso())
 
     def crear_campo(self, texto, validar):
-        etiqueta = tk.Label(self.ventana, text=texto, bg="#eaeaea", font=('Helvetica', 12, 'bold'))
+        etiqueta = tk.Label(self.ventana, text=texto, bg="dodger blue", font=('Comic Sans MS', 12, 'bold'))
         etiqueta.pack(pady=5)
 
-        entrada = tk.Entry(self.ventana, bg="#ffffff", font=('Helvetica', 12), bd=1, relief="solid")
+        entrada = tk.Entry(self.ventana, bg="#ffffff", font=('Helvetica', 12), bd=1)
         entrada.pack(pady=5)
         if validar:
             entrada.config(validate="key", validatecommand=(self.ventana.register(validar), '%P'))
@@ -53,11 +53,11 @@ class Aplicacion:
 
     def crear_botones(self):
         tk.Button(self.ventana, text="Agregar Proceso", command=self.agregar_proceso, bg="#4CAF50", fg="white",
-                  font=('Helvetica', 12)).pack(pady=5)
+                  font=('Verdana', 12,"bold")).pack(pady=5)
         tk.Button(self.ventana, text="Ejecutar Planificación", command=self.ejecutar_planificacion, bg="#2196F3",
-                  fg="white", font=('Helvetica', 12)).pack(pady=5)
+                  fg="white", font=('Verdana', 12, "bold")).pack(pady=5)
         tk.Button(self.ventana, text="Nueva Planificación", command=self.nueva_planificacion, bg="#FF5722",
-                  fg="white", font=('Helvetica', 12)).pack(pady=5)
+                  fg="white", font=('Verdana', 12,"bold")).pack(pady=5)
 
     def crear_tabla(self):
         self.tabla = ttk.Treeview(self.ventana,
@@ -70,8 +70,14 @@ class Aplicacion:
         self.tabla.heading('Inicio', text='Inicio')
         self.tabla.heading('Fin', text='Fin')
 
-        for col in self.tabla['columns']:
-            self.tabla.column(col, anchor='center')
+        # Configurar tamaño de las columnas
+        self.tabla.column('Proceso', anchor='center', width=70)  # Tamaño para la columna 'Proceso'
+        self.tabla.column('Ráfaga CPU', anchor='center', width=70)  # Tamaño para la columna 'Ráfaga CPU'
+        self.tabla.column('Prioridad', anchor='center', width=70)  # Tamaño para la columna 'Prioridad'
+        self.tabla.column('Tiempo Espera', anchor='center', width=70)  # Tamaño para la columna 'Tiempo Espera'
+        self.tabla.column('Inicio', anchor='center', width=70)  # Tamaño para la columna 'Inicio'
+        self.tabla.column('Fin', anchor='center', width=70)  # Tamaño para la columna 'Fin'
+
         self.tabla.pack(pady=10, fill=tk.BOTH, expand=True)
 
     def crear_barra_progreso(self):
@@ -125,6 +131,7 @@ class Aplicacion:
         if not self.entrada_tiempo_llegada.get().strip():
             messagebox.showerror("Error", "Ingrese el Tiempo de Llegada.")
             self.entrada_tiempo_llegada.focus()
+
             return False
         if not self.entrada_prioridad.get().strip():
             messagebox.showerror("Error", "Ingrese la Prioridad.")
@@ -207,9 +214,14 @@ class Aplicacion:
         # Mostrar los resultados con las fórmulas en una ventana emergente
         self.resultado_ventana = messagebox.showinfo("Resultados",
                                                      f"{secuencia_ejecucion}\n\n{tme_formula}\n{tmr_formula}")
+        # Crear un frame para contener el mensaje con desplazamiento
+        frame_mensaje = tk.Frame(self.ventana)
+        frame_mensaje.pack(fill="both", expand=True)
 
 
-
+        # Crear un scrollbar para desplazarse verticalmente
+        scrollbar = ttk.Scrollbar(frame_mensaje, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
 
     def limpiar_tabla(self):
         for item in self.tabla.get_children():
@@ -223,11 +235,3 @@ class Aplicacion:
         self.entrada_nombre.focus_set()
 
 
-
-
-
-# Iniciar la aplicación
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = Aplicacion(root)
-    root.mainloop()
