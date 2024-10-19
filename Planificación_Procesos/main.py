@@ -1,14 +1,13 @@
-# main.py
-import tkinter as tk
 import sys
 import os
-
-sys.path.append(os.path.abspath("/Planificación_Procesos"))
-
-# Import the Aplicacion class
+from PyQt5.QtWidgets import QApplication
 from aplicacion import Aplicacion
 
+# Asegúrate de que el path al módulo Planificación_Procesos esté disponible
+sys.path.append(os.path.abspath("/Planificación_Procesos"))
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = Aplicacion(root)  # Creamos una instancia de Aplicacion
-    root.mainloop()
+    app = QApplication(sys.argv)  # Inicializamos la aplicación PyQt5
+    ventana = Aplicacion()  # Creamos una instancia de la clase Aplicacion (heredada de QMainWindow)
+    ventana.show()  # Mostramos la ventana principal
+    sys.exit(app.exec_())  # Iniciamos el loop de la aplicación

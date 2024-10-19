@@ -1,237 +1,302 @@
-import tkinter as tk
-from tkinter import messagebox, ttk
-from PIL import Image, ImageTk
-import threading
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget, QTableWidget, QTableWidgetItem, QMessageBox, QProgressBar, QDialog
+from PyQt5.QtGui import QFont, QIntValidator
 from Planificación_Procesos.modules.Proceso import Proceso
 from Planificación_Procesos.modules.gestor_procesos import GestorProcesos
 
+class ResultadosDialog(QDialog):
+    def __init__(self, tme, tmr, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Resultados: TME y TMR")
+        self.setGeometry(200, 200, 400, 200)
 
-class Aplicacion:
-    def __init__(self, ventana):
-        self.ventana = ventana
+        # Aplicar estilo a toda la ventana emergente
+        self.setStyleSheet(self.estilo_ventana_emergente())
+
+        layout = QVBoxLayout()
+
+        # Etiquetas para mostrar TME y TMR
+        self.label_tme = QLabel(f"Tiempo Medio de Espera (TME): {tme:.2f} unidades de tiempo", self)
+        self.label_tme.setFont(QFont('Helvetica', 12))
+        layout.addWidget(self.label_tme)
+
+        self.label_tmr = QLabel(f"Tiempo Medio de Retorno (TMR): {tmr:.2f} unidades de tiempo", self)
+        self.label_tmr.setFont(QFont('Helvetica', 12))
+        layout.addWidget(self.label_tmr)
+
+        # Botón para cerrar la ventana
+        self.boton_cerrar = QPushButton("Cerrar", self)
+        self.boton_cerrar.setStyleSheet(self.estilo_boton_fusion())
+        self.boton_cerrar.clicked.connect(self.close)
+        layout.addWidget(self.boton_cerrar)
+
+        self.setLayout(layout)
+
+    def estilo_ventana_emergente(self):
+        return """
+            QDialog {
+                background-color: #F0F0F0;
+                border: 1px solid #A9A9A9;
+                border-radius: 10px;
+                padding: 10px;
+            }
+            QLabel {
+                color: #333333;
+                font-size: 14px;
+            }
+        """
+
+    def estilo_boton_fusion(self):
+        return """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+                padding: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3e8e41;
+            }
+        """
+
+
+class Aplicacion(QMainWindow):
+    def __init__(self):
+        super().__init__()
         self.gestor_procesos = GestorProcesos()  # Instancia del gestor de procesos
-        self.crear_interfaz()
-        self.ventana_emergente = None  # Variable para almacenar la ventana emergente abierta
+        self.initUI()
 
-    def crear_interfaz(self):
-        self.ventana.title("Priority Scheduling Algorithm")
-        self.ventana.geometry("700x600")
-        #Fondo celeste
-        self.ventana.configure(bg="dodger blue")
-        self.crear_entradas_y_etiquetas()
-        self.crear_botones()
-        self.crear_tabla()
-        self.crear_barra_progreso()
-        self.crear_canvas_secuencia()  # Crear el canvas para la secuencia
+    def initUI(self):
+        self.setWindowTitle("Priority Scheduling Algorithm")
+        self.setGeometry(100, 100, 700, 600)
 
-        self.entrada_nombre.focus()
+        layout = QVBoxLayout()
 
-    def crear_entradas_y_etiquetas(self):
-        self.entrada_nombre = self.crear_campo("Nombre del Proceso:", validar=None)
-        self.entrada_tiempo_ejecucion = self.crear_campo("Ráfaga de CPU:", validar=self.validar_numeros)
-        self.entrada_tiempo_llegada = self.crear_campo("Tiempo de Llegada:", validar=self.validar_numeros)
-        self.entrada_prioridad = self.crear_campo("Prioridad:", validar=self.validar_numeros)
+        # Campos de entrada
+        self.entrada_nombre = self.crear_campo("Nombre del Proceso:", layout)
+        self.entrada_tiempo_ejecucion = self.crear_campo("Ráfaga de CPU:", layout, validar=self.validar_numeros)
+        self.entrada_tiempo_llegada = self.crear_campo("Tiempo de Llegada:", layout, validar=self.validar_numeros)
+        self.entrada_prioridad = self.crear_campo("Prioridad:", layout, validar=self.validar_numeros)
 
-        # Atajos de teclado para mover entre los campos con la tecla Enter
-        self.entrada_nombre.bind("<Return>", lambda event: self.entrada_tiempo_ejecucion.focus_set())
-        self.entrada_tiempo_ejecucion.bind("<Return>", lambda event: self.entrada_tiempo_llegada.focus_set())
-        self.entrada_tiempo_llegada.bind("<Return>", lambda event: self.entrada_prioridad.focus_set())
-        self.entrada_prioridad.bind("<Return>", lambda event: self.agregar_proceso())
+        # Mover con Enter entre campos
+        self.entrada_nombre.returnPressed.connect(self.entrada_tiempo_ejecucion.setFocus)
+        self.entrada_tiempo_ejecucion.returnPressed.connect(self.entrada_tiempo_llegada.setFocus)
+        self.entrada_tiempo_llegada.returnPressed.connect(self.entrada_prioridad.setFocus)
+        self.entrada_prioridad.returnPressed.connect(self.agregar_proceso)
 
-    def crear_campo(self, texto, validar):
-        etiqueta = tk.Label(self.ventana, text=texto, bg="dodger blue", font=('Comic Sans MS', 12, 'bold'))
-        etiqueta.pack(pady=5)
+        # Botones
+        self.boton_agregar = QPushButton("Agregar Proceso", self)
+        self.boton_agregar.setFont(QFont('Helvetica', 12))
+        self.boton_agregar.setStyleSheet(self.estilo_boton_fusion())
+        self.boton_agregar.clicked.connect(self.agregar_proceso)
+        layout.addWidget(self.boton_agregar)
 
-        entrada = tk.Entry(self.ventana, bg="#ffffff", font=('Helvetica', 12), bd=1)
-        entrada.pack(pady=5)
+        self.boton_ejecutar = QPushButton("Ejecutar Planificación", self)
+        self.boton_ejecutar.setFont(QFont('Helvetica', 12))
+        self.boton_ejecutar.setStyleSheet(self.estilo_boton_fusion())
+        self.boton_ejecutar.clicked.connect(self.ejecutar_planificacion)
+        layout.addWidget(self.boton_ejecutar)
+
+        self.boton_nueva = QPushButton("Nueva Planificación", self)
+        self.boton_nueva.setFont(QFont('Helvetica', 12))
+        self.boton_nueva.setStyleSheet(self.estilo_boton_fusion())
+        self.boton_nueva.clicked.connect(self.nueva_planificacion)
+        layout.addWidget(self.boton_nueva)
+
+        # Crear tabla
+        self.tabla = QTableWidget(self)
+        self.tabla.setColumnCount(6)
+        self.tabla.setHorizontalHeaderLabels(['Proceso', 'Ráfaga CPU', 'Prioridad', 'Tiempo Espera', 'Inicio', 'Fin'])
+        self.tabla.setStyleSheet(self.estilo_tabla_fusion())
+        layout.addWidget(self.tabla)
+
+        # Crear barra de progreso
+        self.barra_progreso = QProgressBar(self)
+        self.barra_progreso.setStyleSheet(self.estilo_progreso_fusion())
+        layout.addWidget(self.barra_progreso)
+
+        # Crear un widget central para poner el layout
+        widget = QWidget()
+        widget.setLayout(layout)
+        self.setCentralWidget(widget)
+
+    def crear_campo(self, texto, layout, validar=None):
+        etiqueta = QLabel(texto, self)
+        etiqueta.setFont(QFont('Helvetica', 12))
+        layout.addWidget(etiqueta)
+
+        entrada = QLineEdit(self)
+        entrada.setFont(QFont('Helvetica', 12))
+        entrada.setStyleSheet(self.estilo_input_fusion())
         if validar:
-            entrada.config(validate="key", validatecommand=(self.ventana.register(validar), '%P'))
+            entrada.setValidator(QIntValidator(0, 1000, self))  # Solo permite números no negativos
+        layout.addWidget(entrada)
+
         return entrada
 
-    def validar_numeros(self, nuevo_texto):
-        return nuevo_texto.isdigit() or nuevo_texto == ""
-
-    def crear_botones(self):
-        tk.Button(self.ventana, text="Agregar Proceso", command=self.agregar_proceso, bg="#4CAF50", fg="white",
-                  font=('Verdana', 12,"bold")).pack(pady=5)
-        tk.Button(self.ventana, text="Ejecutar Planificación", command=self.ejecutar_planificacion, bg="#2196F3",
-                  fg="white", font=('Verdana', 12, "bold")).pack(pady=5)
-        tk.Button(self.ventana, text="Nueva Planificación", command=self.nueva_planificacion, bg="#FF5722",
-                  fg="white", font=('Verdana', 12,"bold")).pack(pady=5)
-
-    def crear_tabla(self):
-        self.tabla = ttk.Treeview(self.ventana,
-                                  columns=('Proceso', 'Ráfaga CPU', 'Prioridad', 'Tiempo Espera', 'Inicio', 'Fin'),
-                                  show='headings')
-        self.tabla.heading('Proceso', text='Proceso')
-        self.tabla.heading('Ráfaga CPU', text='Ráfaga CPU')
-        self.tabla.heading('Prioridad', text='Prioridad')
-        self.tabla.heading('Tiempo Espera', text='Tiempo Espera')
-        self.tabla.heading('Inicio', text='Inicio')
-        self.tabla.heading('Fin', text='Fin')
-
-        # Configurar tamaño de las columnas
-        self.tabla.column('Proceso', anchor='center', width=70)  # Tamaño para la columna 'Proceso'
-        self.tabla.column('Ráfaga CPU', anchor='center', width=70)  # Tamaño para la columna 'Ráfaga CPU'
-        self.tabla.column('Prioridad', anchor='center', width=70)  # Tamaño para la columna 'Prioridad'
-        self.tabla.column('Tiempo Espera', anchor='center', width=70)  # Tamaño para la columna 'Tiempo Espera'
-        self.tabla.column('Inicio', anchor='center', width=70)  # Tamaño para la columna 'Inicio'
-        self.tabla.column('Fin', anchor='center', width=70)  # Tamaño para la columna 'Fin'
-
-        self.tabla.pack(pady=10, fill=tk.BOTH, expand=True)
-
-    def crear_barra_progreso(self):
-        self.barra_progreso = ttk.Progressbar(self.ventana, mode='indeterminate')
-        self.barra_progreso.pack(pady=10, fill=tk.X)
-
-    def crear_canvas_secuencia(self):
-        self.canvas = tk.Canvas(self.ventana, height=150, bg="white")  # Altura aumentada para mayor claridad
-        self.canvas.pack(pady=10, fill=tk.BOTH, expand=True)
-
+    def validar_numeros(self, texto):
+        if not texto.isdigit():
+            self.sender().setText("")
 
     def agregar_proceso(self):
-        nombre = self.entrada_nombre.get().strip()
+        nombre = self.entrada_nombre.text().strip()
         if not self.validar_campos(nombre):
             return
 
+        # Comprobar si el proceso ya existe
+        if self.proceso_ya_existe(nombre):
+            QMessageBox.critical(self, "Error", f"El proceso '{nombre}' ya existe.")
+            return
+
         try:
-            tiempo_ejecucion = int(self.entrada_tiempo_ejecucion.get())
-            tiempo_llegada = int(self.entrada_tiempo_llegada.get())
-            prioridad = int(self.entrada_prioridad.get())
+            tiempo_ejecucion = int(self.entrada_tiempo_ejecucion.text())
+            tiempo_llegada = int(self.entrada_tiempo_llegada.text())
+            prioridad = int(self.entrada_prioridad.text())
 
             proceso = Proceso(nombre, tiempo_llegada, tiempo_ejecucion, prioridad)
             self.gestor_procesos.agregar_proceso(proceso)
             self.actualizar_tabla()
             self.limpiar_campos()
 
-            # Mostrar ventana emergente y cerrar con Enter
-            self.ventana_emergente = messagebox.showinfo("Información", f"Proceso '{nombre}' agregado correctamente.")
-            self.ventana.bind("<Return>", self.cerrar_ventana_emergente)
+            # Mostrar ventana emergente
+            QMessageBox.information(self, "Información", f"Proceso '{nombre}' agregado correctamente.")
 
         except ValueError as e:
-            messagebox.showerror("Error", str(e))
+            QMessageBox.critical(self, "Error", str(e))
 
-    def cerrar_ventana_emergente(self, event):
-        if self.ventana_emergente is not None:
-            self.ventana_emergente = None  # Limpiamos la referencia a la ventana emergente
-            self.ventana.unbind("<Return>")  # Desactivamos el binding para evitar conflictos
-            messagebox.destroy()  # Cerrar cualquier ventana emergente de Tkinter
+    def proceso_ya_existe(self, nombre):
+        # Comprueba si un proceso con el mismo nombre ya ha sido agregado
+        for proceso in self.gestor_procesos.procesos:
+            if proceso.nombre == nombre:
+                return True
+        return False
 
     def validar_campos(self, nombre):
         if not nombre:
-            messagebox.showerror("Error", "Ingrese el nombre del Proceso.")
-            self.entrada_nombre.focus()
-            #agregar metodo para limpiar campos
-
+            QMessageBox.critical(self, "Error", "Ingrese el nombre del Proceso.")
+            self.entrada_nombre.setFocus()
             return False
-        if not self.entrada_tiempo_ejecucion.get().strip():
-            messagebox.showerror("Error", "Ingrese la Ráfaga de CPU.")
-            self.entrada_tiempo_ejecucion.focus()
+        if not self.entrada_tiempo_ejecucion.text().strip():
+            QMessageBox.critical(self, "Error", "Ingrese la Ráfaga de CPU.")
+            self.entrada_tiempo_ejecucion.setFocus()
             return False
-        if not self.entrada_tiempo_llegada.get().strip():
-            messagebox.showerror("Error", "Ingrese el Tiempo de Llegada.")
-            self.entrada_tiempo_llegada.focus()
-
+        if not self.entrada_tiempo_llegada.text().strip():
+            QMessageBox.critical(self, "Error", "Ingrese el Tiempo de Llegada.")
+            self.entrada_tiempo_llegada.setFocus()
             return False
-        if not self.entrada_prioridad.get().strip():
-            messagebox.showerror("Error", "Ingrese la Prioridad.")
-            self.entrada_prioridad.focus()
+        if not self.entrada_prioridad.text().strip():
+            QMessageBox.critical(self, "Error", "Ingrese la Prioridad.")
+            self.entrada_prioridad.setFocus()
             return False
         return True
 
     def limpiar_campos(self):
-        self.entrada_nombre.delete(0, tk.END)
-        self.entrada_tiempo_ejecucion.delete(0, tk.END)
-        self.entrada_tiempo_llegada.delete(0, tk.END)
-        self.entrada_prioridad.delete(0, tk.END)
-        self.entrada_nombre.focus()
+        self.entrada_nombre.clear()
+        self.entrada_tiempo_ejecucion.clear()
+        self.entrada_tiempo_llegada.clear()
+        self.entrada_prioridad.clear()
+        self.entrada_nombre.setFocus()
 
     def actualizar_tabla(self):
-        for item in self.tabla.get_children():
-            self.tabla.delete(item)
+        self.tabla.setRowCount(0)  # Limpiar la tabla
         for proceso in self.gestor_procesos.planificar_por_prioridad():
-            tiempo_espera_ut = f"{proceso[4]}ut"  # Tiempo de espera con el formato de operación
-            inicio_ut = f"{proceso[6]} ut"  # Tiempo de inicio
-            fin_ut = f"{proceso[7]} ut"  # Tiempo de finalización
-            self.tabla.insert("", tk.END,
-                              values=(proceso[0], proceso[1], proceso[3], tiempo_espera_ut, inicio_ut, fin_ut))
+            row_position = self.tabla.rowCount()
+            self.tabla.insertRow(row_position)
+            self.tabla.setItem(row_position, 0, QTableWidgetItem(proceso[0]))
+            self.tabla.setItem(row_position, 1, QTableWidgetItem(str(proceso[1])))
+            self.tabla.setItem(row_position, 2, QTableWidgetItem(str(proceso[3])))
+            self.tabla.setItem(row_position, 3, QTableWidgetItem(str(proceso[4])))
+            self.tabla.setItem(row_position, 4, QTableWidgetItem(str(proceso[6])))
+            self.tabla.setItem(row_position, 5, QTableWidgetItem(str(proceso[7])))
 
     def ejecutar_planificacion(self):
-        self.barra_progreso.start(10)
-        threading.Thread(target=self.planificar).start()
+        self.barra_progreso.setValue(0)
+        self.barra_progreso.setMaximum(100)
+        self.barra_progreso.setValue(100)
 
-    def planificar(self):
-        try:
-            resultado = self.gestor_procesos.planificar_por_prioridad()
-            self.mostrar_resultados(resultado)
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
-        finally:
-            self.barra_progreso.stop()
-
-    def mostrar_resultados(self, resultado):
-        self.limpiar_tabla()
-        self.canvas.delete("all")  # Limpiar el Canvas antes de dibujar la nueva secuencia
-        secuencia_ejecucion = "Secuencia de Ejecución: "
-        x_actual = 50  # Coordenada inicial en el canvas, ajustada para más claridad
-        y = 50  # Altura fija para las barras
-        height = 30  # Altura de cada barra
-        escala = 40  # Escala para representar las unidades de tiempo
-
-        for proceso in resultado:
-            inicio = x_actual
-            duracion = proceso[1] * escala  # Ajustar la duración a la escala
-            fin = inicio + duracion
-
-            # Dibujar el rectángulo (barra de proceso)
-            self.canvas.create_rectangle(inicio, y, fin, y + height, fill="lightblue", outline="black")
-            self.canvas.create_text((inicio + fin) // 2, y + height / 2, text=proceso[0], font=('Helvetica', 10))
-
-            # Dibujar los tiempos
-            self.canvas.create_text(inicio, y + height + 10, text=str(proceso[6]),
-                                    font=('Helvetica', 10))  # Tiempo de inicio
-            self.canvas.create_text(fin, y + height + 10, text=str(proceso[7]),
-                                    font=('Helvetica', 10))  # Tiempo de finalización
-
-            # Actualizar la secuencia de ejecución mostrando el nombre del proceso, tiempo de inicio y tiempo de retorno
-            secuencia_ejecucion += f"{proceso[0]} ({proceso[6]}-{proceso[7]}) -> "
-            x_actual = fin + 10  # Ajustar la posición para el siguiente proceso
-
-        # Calcular promedios y obtener sumas parciales
+        # Cálculos de TME y TMR
         tme, tmr, total_espera, total_retorno = self.gestor_procesos.calcular_promedios()
 
-        # Obtener la cantidad de procesos
-        n = len(self.gestor_procesos.procesos)
+        # Mostrar resultados en la ventana separada
+        self.mostrar_resultados(tme, tmr)
 
-        # Crear la operación lógica para TME y TMR
-        tme_formula = "TME=(" + "+".join(
-            str(p.tiempo_espera) for p in self.gestor_procesos.procesos) + f")/{n}={tme:.2f} ut"
-
-        # Usar los tiempos finales para calcular TMR
-        # En este caso utilizaremos el valor de fin de cada proceso que esta en la tabla
-        tmr_formula = "TMR=(" + "+".join(
-            str(p.tiempo_retorno) for p in self.gestor_procesos.procesos) + f")/{n}={tmr:.2f} ut"
-        # Mostrar los resultados con las fórmulas en una ventana emergente
-        self.resultado_ventana = messagebox.showinfo("Resultados",
-                                                     f"{secuencia_ejecucion}\n\n{tme_formula}\n{tmr_formula}")
-        # Crear un frame para contener el mensaje con desplazamiento
-        frame_mensaje = tk.Frame(self.ventana)
-        frame_mensaje.pack(fill="both", expand=True)
-
-
-        # Crear un scrollbar para desplazarse verticalmente
-        scrollbar = ttk.Scrollbar(frame_mensaje, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
-
-    def limpiar_tabla(self):
-        for item in self.tabla.get_children():
-            self.tabla.delete(item)
+    def mostrar_resultados(self, tme, tmr):
+        # Crear una ventana de diálogo para mostrar los resultados de TME y TMR
+        dialogo_resultados = ResultadosDialog(tme, tmr, self)
+        dialogo_resultados.exec_()
 
     def nueva_planificacion(self):
-        self.limpiar_tabla()
+        self.tabla.setRowCount(0)
         self.limpiar_campos()
         self.gestor_procesos.limpiar_procesos()
-        self.canvas.delete("all")  # Limpiar la secuencia en el Canvas
-        self.entrada_nombre.focus_set()
 
+    # Métodos para los estilos fusionados
+    def estilo_boton_fusion(self):
+        return """
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+                padding: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3e8e41;
+            }
+        """
 
+    def estilo_input_fusion(self):
+        return """
+            QLineEdit {
+                background-color: white;
+                border: 1px solid #CCCCCC;
+                padding: 5px;
+                font-size: 14px;
+            }
+        """
+
+    def estilo_tabla_fusion(self):
+        return """
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #CCCCCC;
+                font-size: 12px;
+            }
+            QHeaderView::section {
+                background-color: #EAEAEA;
+                padding: 4px;
+                font-size: 14px;
+                color: #555555;
+                border: 1px solid #CCCCCC;
+            }
+        """
+
+    def estilo_progreso_fusion(self):
+        return """
+            QProgressBar {
+                border: 1px solid #CCCCCC;
+                background: #F3F3F3;
+                height: 10px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
+        """
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    # Aplicar el estilo "Fusion"
+    app.setStyle('Fusion')
+
+    ventana = Aplicacion()
+    ventana.show()
+
+    sys.exit(app.exec_())
