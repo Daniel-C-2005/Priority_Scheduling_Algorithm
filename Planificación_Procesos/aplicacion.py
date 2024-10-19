@@ -1,53 +1,41 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget, QTableWidget, QTableWidgetItem, QMessageBox, QProgressBar, QDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget, \
+    QTableWidget, QTableWidgetItem, QMessageBox, QProgressBar, QDialog, QHeaderView
 from PyQt5.QtGui import QFont, QIntValidator
 from Planificación_Procesos.modules.Proceso import Proceso
 from Planificación_Procesos.modules.gestor_procesos import GestorProcesos
 
 class ResultadosDialog(QDialog):
-    def __init__(self, tme, tmr, parent=None):
+    def __init__(self, tme, tmr, detalles_tme_tmr, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Resultados: TME y TMR")
-        self.setGeometry(200, 200, 400, 200)
-
-        # Aplicar estilo a toda la ventana emergente
-        self.setStyleSheet(self.estilo_ventana_emergente())
+        self.setGeometry(200, 200, 600, 400)
 
         layout = QVBoxLayout()
 
-        # Etiquetas para mostrar TME y TMR
-        self.label_tme = QLabel(f"Tiempo Medio de Espera (TME): {tme:.2f} unidades de tiempo", self)
+        # Mostrar los resultados de TME y TMR
+        self.label_tme = QLabel(f"TME (Tiempo Medio de Espera): {tme:.2f} unidades de tiempo", self)
         self.label_tme.setFont(QFont('Helvetica', 12))
         layout.addWidget(self.label_tme)
 
-        self.label_tmr = QLabel(f"Tiempo Medio de Retorno (TMR): {tmr:.2f} unidades de tiempo", self)
+        self.label_tmr = QLabel(f"TMR (Tiempo Medio de Retorno): {tmr:.2f} unidades de tiempo", self)
         self.label_tmr.setFont(QFont('Helvetica', 12))
         layout.addWidget(self.label_tmr)
 
+        # Mostrar detalle de los cálculos para cada proceso
+        self.label_detalle = QLabel("Desglose de cálculos:", self)
+        self.label_detalle.setFont(QFont('Helvetica', 12))
+        layout.addWidget(self.label_detalle)
+
+        for detalle in detalles_tme_tmr:
+            nombre_proceso = detalle['nombre']
+            espera = detalle['tiempo_espera']
+            retorno = detalle['tiempo_retorno']
+            layout.addWidget(QLabel(f"Proceso {nombre_proceso}: Tiempo de Espera = {espera} ut, Tiempo de Retorno = {retorno} ut", self))
+
         # Botón para cerrar la ventana
         self.boton_cerrar = QPushButton("Cerrar", self)
-        self.boton_cerrar.setStyleSheet(self.estilo_boton_fusion())
-        self.boton_cerrar.clicked.connect(self.close)
-        layout.addWidget(self.boton_cerrar)
-
-        self.setLayout(layout)
-
-    def estilo_ventana_emergente(self):
-        return """
-            QDialog {
-                background-color: #F0F0F0;
-                border: 1px solid #A9A9A9;
-                border-radius: 10px;
-                padding: 10px;
-            }
-            QLabel {
-                color: #333333;
-                font-size: 14px;
-            }
-        """
-
-    def estilo_boton_fusion(self):
-        return """
+        self.boton_cerrar.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
@@ -61,7 +49,11 @@ class ResultadosDialog(QDialog):
             QPushButton:pressed {
                 background-color: #3e8e41;
             }
-        """
+        """)
+        self.boton_cerrar.clicked.connect(self.close)
+        layout.addWidget(self.boton_cerrar)
+
+        self.setLayout(layout)
 
 
 class Aplicacion(QMainWindow):
@@ -73,6 +65,13 @@ class Aplicacion(QMainWindow):
     def initUI(self):
         self.setWindowTitle("Priority Scheduling Algorithm")
         self.setGeometry(100, 100, 700, 600)
+
+        # Aplicar fondo con degradado de verde fuerte a azul claro
+        self.setStyleSheet("""
+              QMainWindow {
+                  background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #4CAF50, stop:1 #2196F3);
+              }
+          """)
 
         layout = QVBoxLayout()
 
@@ -113,6 +112,16 @@ class Aplicacion(QMainWindow):
         self.tabla.setHorizontalHeaderLabels(['Proceso', 'Ráfaga CPU', 'Prioridad', 'Tiempo Espera', 'Inicio', 'Fin'])
         self.tabla.setStyleSheet(self.estilo_tabla_fusion())
         layout.addWidget(self.tabla)
+
+        # Estilo negrita para el encabezado de la tabla
+        header = self.tabla.horizontalHeader()
+        header.setStyleSheet("QHeaderView::section { font-weight: bold; }")
+
+        # Ajustar el tamaño de las columnas al contenido
+        self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        # Ajustar todas columnas para que se expandan y llenen el espacio restante
+        self.tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         # Crear barra de progreso
         self.barra_progreso = QProgressBar(self)
@@ -209,9 +218,9 @@ class Aplicacion(QMainWindow):
             self.tabla.setItem(row_position, 0, QTableWidgetItem(proceso[0]))
             self.tabla.setItem(row_position, 1, QTableWidgetItem(str(proceso[1])))
             self.tabla.setItem(row_position, 2, QTableWidgetItem(str(proceso[3])))
-            self.tabla.setItem(row_position, 3, QTableWidgetItem(str(proceso[4])))
-            self.tabla.setItem(row_position, 4, QTableWidgetItem(str(proceso[6])))
-            self.tabla.setItem(row_position, 5, QTableWidgetItem(str(proceso[7])))
+            self.tabla.setItem(row_position, 3, QTableWidgetItem(f"{proceso[4]} ut"))  # Agrega "ut" al final
+            self.tabla.setItem(row_position, 4, QTableWidgetItem(f"{proceso[6]} ut"))  # Agrega "ut"
+            self.tabla.setItem(row_position, 5, QTableWidgetItem(f"{proceso[7]} ut"))  # Agrega "ut"
 
     def ejecutar_planificacion(self):
         self.barra_progreso.setValue(0)
@@ -219,15 +228,25 @@ class Aplicacion(QMainWindow):
         self.barra_progreso.setValue(100)
 
         # Cálculos de TME y TMR
-        tme, tmr, total_espera, total_retorno = self.gestor_procesos.calcular_promedios()
+        try:
+            # Verifica que el gestor de procesos tenga procesos antes de calcular
+            if len(self.gestor_procesos.procesos) == 0:
+                QMessageBox.warning(self, "Advertencia", "No hay procesos para planificar.")
+                return
 
-        # Mostrar resultados en la ventana separada
-        self.mostrar_resultados(tme, tmr)
+            # Llamada al cálculo de promedios
+            tme, tmr, detalles_tme_tmr = self.gestor_procesos.calcular_promedios()
 
-    def mostrar_resultados(self, tme, tmr):
-        # Crear una ventana de diálogo para mostrar los resultados de TME y TMR
-        dialogo_resultados = ResultadosDialog(tme, tmr, self)
-        dialogo_resultados.exec_()
+            # Debug para asegurarte que los valores se calculan correctamente
+            print(f"TME: {tme}, TMR: {tmr}, Detalles: {detalles_tme_tmr}")
+
+            # Mostrar ventana emergente con los detalles del cálculo
+            dialogo_resultados = ResultadosDialog(tme, tmr, detalles_tme_tmr, self)
+            dialogo_resultados.exec_()  # Asegúrate de usar exec_ para mostrar el diálogo de forma modal
+
+        except Exception as e:
+            # Mensaje de error en caso de fallo en la planificación
+            QMessageBox.critical(self, "Error", f"Se produjo un error durante la planificación: {str(e)}")
 
     def nueva_planificacion(self):
         self.tabla.setRowCount(0)
@@ -238,17 +257,17 @@ class Aplicacion(QMainWindow):
     def estilo_boton_fusion(self):
         return """
             QPushButton {
-                background-color: #4CAF50;
+                background-color: transparent;
                 color: white;
-                border-radius: 5px;
-                padding: 5px;
+                border-radius: 15px;  /* Borde redondeado */
+                padding: 10px;
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: SKYBLUE;
             }
             QPushButton:pressed {
-                background-color: #3e8e41;
+                background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 blue, stop:1  skyblue);
             }
         """
 
@@ -257,6 +276,7 @@ class Aplicacion(QMainWindow):
             QLineEdit {
                 background-color: white;
                 border: 1px solid #CCCCCC;
+                border-radius: 15px;  /* Borde redondeado */
                 padding: 5px;
                 font-size: 14px;
             }
@@ -266,7 +286,7 @@ class Aplicacion(QMainWindow):
         return """
             QTableWidget {
                 background-color: white;
-                border: 1px solid #CCCCCC;
+                border: 2px solid #CCCCCC;
                 font-size: 12px;
             }
             QHeaderView::section {
@@ -274,7 +294,7 @@ class Aplicacion(QMainWindow):
                 padding: 4px;
                 font-size: 14px;
                 color: #555555;
-                border: 1px solid #CCCCCC;
+                border: 2px solid #CCCCCC;
             }
         """
 
@@ -290,6 +310,7 @@ class Aplicacion(QMainWindow):
             }
         """
 
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
@@ -300,3 +321,4 @@ if __name__ == '__main__':
     ventana.show()
 
     sys.exit(app.exec_())
+
